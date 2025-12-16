@@ -1,0 +1,29 @@
+{
+	"name": "Goodbudget",
+	"version": "1.0.0",
+	"description": "Goodbudget: Expense Tracker",
+	"type": "module",
+	"main": "index.js",
+	"scripts": {
+		"dev": "tsc && node dist/index.js",
+		"check": "biome check .",
+		"check:fix": "biome check . --fix",
+		"check:migrate": "biome migrate --write"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"packageManager": "pnpm@10.26.0",
+	"devDependencies": {
+		"@biomejs/biome": "2.3.9",
+		"@types/node": "^25.0.2",
+		"@types/pg": "^8.16.0",
+		"prisma": "^7.1.0"
+	},
+	"dependencies": {
+		"@prisma/adapter-pg": "^7.1.0",
+		"@prisma/client": "^7.1.0",
+		"dotenv": "^17.2.3",
+		"pg": "^8.16.3"
+	}
+}
