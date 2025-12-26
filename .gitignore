@@ -140,4 +140,5 @@ vite.config.ts.timestamp-*
 
 src/generated/prisma
 ./src/generated/
-
+./test-auth.html
+./prisma/migrations/

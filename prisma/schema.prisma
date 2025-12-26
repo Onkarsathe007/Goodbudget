@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -14,27 +8,71 @@ datasource db {
 }
 
 model User {
-  userId          String     @id @default(uuid())
-  email           String     @unique
-  mobile          BigInt?    @unique
-  current_balance Int
-  created_at      DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-  accounts        Account[]
+  id              String          @id @default(cuid())
+  email           String          @unique
+  name            String?
+  image           String?
+  createdAt       DateTime        @default(now())
+  current_balance Int             @default(0)
+  updatedAt       DateTime        @updatedAt
+  emailVerified   Boolean         @default(false)
   expenses        Expenses[]
+  oauthAccounts   Account[]
+  budgetAccounts  BudgetAccount[]
+  sessions        Session[]
+
+  @@map("user")
 }
 
 model Account {
-  id             String      @id @default(uuid())
+  id                    String    @id @default(cuid())
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  accountId             String
+  providerId            String
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("account")
+}
+
+model BudgetAccount {
+  id             String      @id @default(cuid())
+  userId         String
+  name           String      @default("anonymous")
+  initialBalance Int         @default(0)
+  type           AccountType @default(BANK)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
-  userId         String
-  name           String      @default("anonymus")
-  type           AccountType @default(BANK)
-  initialBalance Int         @default(0)
-  currentBalance Int
-  user           User        @relation(fields: [userId], references: [userId])
   expenses       Expenses[]
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("budget_account")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
 }
 
 model categories {
@@ -48,19 +86,31 @@ model categories {
 }
 
 model Expenses {
-  id         String      @id @default(uuid())
+  id         String        @id @default(uuid())
   userId     String
   accountId  String
   categoryId Int
   title      String?
   note       String?
-  createdAt  DateTime    @default(now())
-  updateAt   DateTime    @updatedAt
+  createdAt  DateTime      @default(now())
+  updateAt   DateTime      @updatedAt
   amount     Int
   type       AccountType
-  user       User        @relation(fields: [userId], references: [userId])
-  account    Account     @relation(fields: [accountId], references: [id])
-  category   categories  @relation(fields: [categoryId], references: [id])
+  account    BudgetAccount @relation(fields: [accountId], references: [id])
+  category   categories    @relation(fields: [categoryId], references: [id])
+  user       User          @relation(fields: [userId], references: [id])
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
 }
 
 enum AccountType {
