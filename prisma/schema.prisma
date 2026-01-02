@@ -1,0 +1,131 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id              String          @id @default(cuid())
+  email           String          @unique
+  name            String?
+  image           String?
+  role            UserRole        @default(USER)
+  createdAt       DateTime        @default(now())
+  current_balance Int             @default(0)
+  updatedAt       DateTime        @updatedAt
+  emailVerified   Boolean         @default(false)
+  expenses        Expenses[]
+  oauthAccounts   Account[]
+  budgetAccounts  BudgetAccount[]
+  sessions        Session[]
+
+  @@map("user")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  accountId             String
+  providerId            String
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("account")
+}
+
+model BudgetAccount {
+  id             String      @id @default(cuid())
+  userId         String
+  name           String      @default("anonymous")
+  initialBalance Int         @default(0)
+  type           AccountType @default(BANK)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  expenses       Expenses[]
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("budget_account")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model categories {
+  id        Int          @id @unique
+  name      String
+  type      CategoryType @default(EXPENSE)
+  isDefault Boolean      @default(false)
+  createdAt DateTime     @default(now())
+  updateAt  DateTime     @updatedAt
+  expenses  Expenses[]
+}
+
+model Expenses {
+  id         String        @id @default(uuid())
+  userId     String
+  accountId  String
+  categoryId Int
+  title      String?
+  note       String?
+  createdAt  DateTime      @default(now())
+  updateAt   DateTime      @updatedAt
+  amount     Int
+  type       AccountType
+  account    BudgetAccount @relation(fields: [accountId], references: [id])
+  category   categories    @relation(fields: [categoryId], references: [id])
+  user       User          @relation(fields: [userId], references: [id])
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+enum AccountType {
+  CASH
+  BANK
+  WALLET
+}
+
+enum CategoryType {
+  EXPENSE
+  INCOME
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
