@@ -143,3 +143,5 @@ src/generated/prisma
 ./test-auth.html
 ./prisma/migrations/
 ./test-auth.html
+./logs/error.log
+./logs/combined.log
