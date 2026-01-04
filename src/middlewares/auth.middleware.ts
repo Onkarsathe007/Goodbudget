@@ -1,8 +1,8 @@
-import type { Request, Response, NextFunction } from "express";
-import { auth } from "../config/auth.config.js";
 import { fromNodeHeaders } from "better-auth/node";
+import type { NextFunction, Request, Response } from "express";
+import { auth } from "../config/auth.config.js";
 import prisma from "../config/db.config.js";
-
+import logger from "../config/logs.config.js";
 /**
  * Middleware to check if user is authenticated
  * Attaches session to req.user if authenticated
@@ -31,7 +31,7 @@ export const requireAuth = async (
 
     next();
   } catch (error) {
-    console.error("Auth middleware error:", error);
+    logger.error("Auth middleware error:", error);
     return res.status(401).json({
       error: "Unauthorized",
       message: "Invalid or expired session",
@@ -90,7 +90,7 @@ export const requireRole = (allowedRoles: string[]) => {
 
       const userRole = userFromDb?.role;
 
-      console.log("[DEBUG] Role Check:", {
+      logger.debug("[DEBUG] Role Check:", {
         userId: session.user.id,
         email: session.user.email,
         userRole: userRole,
@@ -100,7 +100,7 @@ export const requireRole = (allowedRoles: string[]) => {
       });
 
       if (!userRole || !allowedRoles.includes(userRole)) {
-        console.log(
+        logger.debug(
           `[FORBIDDEN] User ${session.user.email} has role "${userRole}", needs one of: ${allowedRoles.join(", ")}`,
         );
         return res.status(403).json({
@@ -115,7 +115,7 @@ export const requireRole = (allowedRoles: string[]) => {
 
       next();
     } catch (error) {
-      console.error("Role middleware error:", error);
+      logger.error("Role middleware error:", error);
       return res.status(401).json({
         error: "Unauthorized",
         message: "Invalid or expired session",

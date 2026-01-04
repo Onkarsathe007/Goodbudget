@@ -2,9 +2,10 @@ import type { Application } from "express";
 import express from "express";
 import "dotenv/config";
 import path from "path";
-import setUpMiddleware from "./middlewares/index.middleware.js";
 import { fileURLToPath } from "url";
+import logger from "./config/logs.config.js";
 import { requireAdmin, requireAuth } from "./middlewares/auth.middleware.js";
+import setUpMiddleware from "./middlewares/index.middleware.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,5 +27,5 @@ app.get("/", (req, res) => {
 });
 
 app.listen(process.env.PORT, () => {
-  console.log(`Server listening on port ${process.env.PORT}`);
+  logger.info(`Server listening on port ${process.env.PORT}`);
 });

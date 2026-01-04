@@ -1,7 +1,9 @@
 import "dotenv/config";
+import { log } from "node:console";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../generated/prisma/client.js";
 import { configDotenv } from "dotenv";
+import { PrismaClient } from "../generated/prisma/client.js";
+import logger from "./logs.config.js";
 
 const connectionString = `${process.env.DATABASE_URL}`;
 
@@ -18,12 +20,12 @@ async function createPrismaClient(
     try {
       const client = new PrismaClient({ adapter });
       await client.$connect();
-      console.log("Connected to Database.");
+      logger.info("Connected to Database.");
       return client;
     } catch (err) {
-      console.error(`Attempt ${attempt} failed: ${(err as Error).message}`);
+      logger.error(`Attempt ${attempt} failed: ${(err as Error).message}`);
       if (attempt === retries) {
-        console.error("All attempts failed. Exiting.");
+        logger.error("All attempts failed. Exiting.");
         process.exit(1);
       }
       await new Promise((res) => setTimeout(res, delay));
