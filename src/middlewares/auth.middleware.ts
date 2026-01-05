@@ -1,7 +1,18 @@
-import type { Request, Response, NextFunction } from "express";
-import { auth } from "../config/auth.config.js";
 import { fromNodeHeaders } from "better-auth/node";
+import type { NextFunction, Request, Response } from "express";
+import { auth } from "../config/auth.config.js";
 import prisma from "../config/db.config.js";
+import logger from "../config/logs.config.js";
+
+// Extend Express Request type to include user and session
+declare global {
+  namespace Express {
+    interface Request {
+      user?: typeof auth.$Infer.Session.user & { role?: string };
+      session?: typeof auth.$Infer.Session.session;
+    }
+  }
+}
 
 /**
  * Middleware to check if user is authenticated
@@ -26,12 +37,12 @@ export const requireAuth = async (
     }
 
     // Attach user and session to request object
-    (req as any).user = session.user;
-    (req as any).session = session.session;
+    req.user = session.user;
+    req.session = session.session;
 
     next();
   } catch (error) {
-    console.error("Auth middleware error:", error);
+    logger.error("Auth middleware error:", error);
     return res.status(401).json({
       error: "Unauthorized",
       message: "Invalid or expired session",
@@ -45,7 +56,7 @@ export const requireAuth = async (
  */
 export const optionalAuth = async (
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction,
 ) => {
   try {
@@ -53,13 +64,13 @@ export const optionalAuth = async (
       headers: fromNodeHeaders(req.headers),
     });
 
-    if (session && session.user) {
-      (req as any).user = session.user;
-      (req as any).session = session.session;
+    if (session?.user) {
+      req.user = session.user;
+      req.session = session.session;
     }
 
     next();
-  } catch (error) {
+  } catch (_error) {
     // Silently fail for optional auth
     next();
   }
@@ -90,7 +101,7 @@ export const requireRole = (allowedRoles: string[]) => {
 
       const userRole = userFromDb?.role;
 
-      console.log("[DEBUG] Role Check:", {
+      logger.debug("[DEBUG] Role Check:", {
         userId: session.user.id,
         email: session.user.email,
         userRole: userRole,
@@ -100,7 +111,7 @@ export const requireRole = (allowedRoles: string[]) => {
       });
 
       if (!userRole || !allowedRoles.includes(userRole)) {
-        console.log(
+        logger.debug(
           `[FORBIDDEN] User ${session.user.email} has role "${userRole}", needs one of: ${allowedRoles.join(", ")}`,
         );
         return res.status(403).json({
@@ -110,12 +121,12 @@ export const requireRole = (allowedRoles: string[]) => {
       }
 
       // Attach user with role to request
-      (req as any).user = { ...session.user, role: userRole };
-      (req as any).session = session.session;
+      req.user = { ...session.user, role: userRole };
+      req.session = session.session;
 
       next();
     } catch (error) {
-      console.error("Role middleware error:", error);
+      logger.error("Role middleware error:", error);
       return res.status(401).json({
         error: "Unauthorized",
         message: "Invalid or expired session",

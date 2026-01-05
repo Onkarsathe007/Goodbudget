@@ -1,9 +1,9 @@
-import cookieParser from "cookie-parser";
 import { toNodeHandler } from "better-auth/node";
+import cookieParser from "cookie-parser";
 import cors from "cors";
+import type { Application } from "express";
 import express from "express";
 import { auth } from "../config/auth.config.js";
-import type { Application } from "express";
 import categoryRouter from "../routes/category.routes.js";
 
 export default function setUpMiddleware(app: Application) {
@@ -15,12 +15,11 @@ export default function setUpMiddleware(app: Application) {
   );
 
   app.use(cookieParser());
+  app.use(express.json());
 
-  app.use("/api/auth", (req, res, next) => {
+  app.use("/api/auth", (req, res, _next) => {
     return toNodeHandler(auth)(req, res);
   });
 
   app.use("/api", categoryRouter);
-
-  app.use(express.json());
 }

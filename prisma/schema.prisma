@@ -77,8 +77,8 @@ model Session {
 }
 
 model categories {
-  id        Int          @id @unique
-  name      String
+  id        Int          @id @unique @default(autoincrement())
+  name      String       @unique
   type      CategoryType @default(EXPENSE)
   isDefault Boolean      @default(false)
   createdAt DateTime     @default(now())
