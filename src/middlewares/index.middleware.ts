@@ -17,7 +17,7 @@ export default function setUpMiddleware(app: Application) {
   app.use(cookieParser());
   app.use(express.json());
 
-  app.use("/api/auth", (req, res, next) => {
+  app.use("/api/auth", (req, res, _next) => {
     return toNodeHandler(auth)(req, res);
   });
 

@@ -1,7 +1,5 @@
 import "dotenv/config";
-import { log } from "node:console";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { configDotenv } from "dotenv";
 import { PrismaClient } from "../generated/prisma/client.js";
 import logger from "./logs.config.js";
 

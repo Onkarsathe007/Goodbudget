@@ -1,10 +1,9 @@
 import type { Application } from "express";
 import express from "express";
 import "dotenv/config";
-import path from "path";
-import { fileURLToPath } from "url";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import logger from "./config/logs.config.js";
-import { requireAdmin, requireAuth } from "./middlewares/auth.middleware.js";
 import setUpMiddleware from "./middlewares/index.middleware.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -15,12 +14,12 @@ const app: Application = express();
 setUpMiddleware(app);
 
 // Test route
-app.get("/test", (req, res) => {
+app.get("/test", (_req, res) => {
   const filePath = path.join(process.cwd(), "test-auth.html");
   res.sendFile(filePath);
 });
 
-app.get("/", (req, res) => {
+app.get("/", (_req, res) => {
   res.json({
     message: "Goodbudget API is running.",
   });

@@ -1,14 +1,11 @@
-import { constrainedMemory } from "node:process";
 import type { Request, Response } from "express";
-import express, { Router } from "express";
-import z, { parse } from "zod";
-import { da, tr } from "zod/locales";
+import z from "zod";
 import prisma from "../config/db.config.js";
 import logger from "../config/logs.config.js";
 import { categorySchema } from "../types/category.types.js";
 
 export const CategoryController = {
-  async getCategories(req: Request, res: Response) {
+  async getCategories(_req: Request, res: Response) {
     try {
       const response = await prisma.categories.findMany();
       if (response.length === 0) {
@@ -18,7 +15,7 @@ export const CategoryController = {
         res.status(404).json({ message: "record not found" });
       }
       res.json(response);
-    } catch (error) {
+    } catch (_error) {
       res.status(500).json("Internal Server error");
     }
   },
@@ -42,7 +39,7 @@ export const CategoryController = {
       res
         .status(201)
         .json({ message: "Category Created Successfully", data: data });
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Zod Validation Error Handelling
       if (error instanceof z.ZodError) {
         logger.warn("Validation Error", { errors: error.message });
@@ -53,7 +50,12 @@ export const CategoryController = {
       }
 
       // Unique constraint Violation
-      if (error.code === "P2002") {
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        error.code === "P2002"
+      ) {
         logger.warn("Duplicate category name", { name: req.body.name });
         return res.status(409).json({
           message: "A category with this name already exists",
@@ -118,8 +120,10 @@ export const CategoryController = {
       return res.status(200).json({
         message: "Category deleted successfully",
       });
-    } catch (error: any) {
-      logger.error("Failed to delete category", { error: error.message });
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      logger.error("Failed to delete category", { error: errorMessage });
       return res.status(500).json({
         message: "Internal server error",
       });
@@ -143,19 +147,23 @@ export const CategoryController = {
       return res.status(404).json({
         message: "Category not found",
       });
-      try {
-        const result = await prisma.categories.update({
-          where: { id: id },
-          data: {
-            name: parsedData.name,
-            type: parsedData.type,
-            isDefault: parsedData.isDefault,
-          },
-        });
-        res.status(200).json({ message: "Resource updated Successfully" });
-      } catch (error: any) {
-        logger.log(error.message);
-      }
+    }
+
+    try {
+      await prisma.categories.update({
+        where: { id: id },
+        data: {
+          name: parsedData.name,
+          type: parsedData.type,
+          isDefault: parsedData.isDefault,
+        },
+      });
+      res.status(200).json({ message: "Resource updated Successfully" });
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      logger.error("Failed to update category", { error: errorMessage });
+      return res.status(500).json({ message: "Failed to update category" });
     }
   },
 };

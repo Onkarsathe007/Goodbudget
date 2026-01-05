@@ -1,5 +1,4 @@
 import { toNodeHandler } from "better-auth/node";
-import type { Application, Request, Response } from "express";
 import { Router } from "express";
 import { auth } from "../config/auth.config.js";
 

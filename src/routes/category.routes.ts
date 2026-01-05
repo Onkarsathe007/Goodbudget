@@ -1,6 +1,4 @@
-import type { Request, Response } from "express";
 import express, { type Router } from "express";
-import prisma from "../config/db.config.js";
 import { CategoryController } from "../controllers/category.controller.js";
 import { requireAdmin } from "../middlewares/auth.middleware.js";
 
