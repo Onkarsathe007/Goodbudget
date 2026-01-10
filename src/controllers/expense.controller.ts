@@ -298,6 +298,7 @@ const expenseController = {
 
       const existingExpense = await prisma.expenses.findUnique({
         where: { id },
+        include: { category: true },
       });
 
       if (!existingExpense) {
@@ -313,6 +314,16 @@ const expenseController = {
 
       await prisma.expenses.delete({
         where: { id },
+      });
+
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          current_balance:
+            existingExpense.category.type === "INCOME"
+              ? { decrement: existingExpense.amount }
+              : { increment: existingExpense.amount },
+        },
       });
 
       logger.info(`Expense deleted: ${id}`);
