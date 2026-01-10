@@ -1,10 +1,14 @@
-import { auth } from "../config/auth.config.js";
 import { fromNodeHeaders } from "better-auth/node"; // FromNodeHeaders from Better Auth to convert Express headers
 import type { Request, Response } from "express";
-import logger from "../config/logs.config.js";
-import prisma from "../config/db.config.js";
-import { expenseSchema } from "../types/expenses.types.js";
 import z from "zod";
+import { auth } from "../config/auth.config.js";
+import prisma from "../config/db.config.js";
+import logger from "../config/logs.config.js";
+import type {
+  ExpensesUncheckedCreateInput,
+  ExpensesUncheckedUpdateInput,
+} from "../generated/prisma/models.js";
+import { expenseSchema } from "../types/expenses.types.js";
 
 const expenseController = {
   async getExpenses(_req: Request, res: Response) {
@@ -77,7 +81,7 @@ const expenseController = {
         });
       }
       const userId = session.user.id;
-      logger.info(session.user.id);
+      // logger.info(session.user.id);
 
       const categoryData = await prisma.categories.findUnique({
         where: { name: category },
@@ -100,7 +104,7 @@ const expenseController = {
 
       const parsedData = expenseSchema.parse(expenseData);
 
-      const createData: any = {
+      const createData: ExpensesUncheckedCreateInput = {
         userId: parsedData.userId,
         categoryId: parsedData.categoryId,
         title: parsedData.title,
@@ -113,8 +117,39 @@ const expenseController = {
         createData.accountId = accountId;
       }
 
+      if (categoryData.type === "EXPENSE") {
+        const currentUser = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { current_balance: true },
+        });
+
+        if (!currentUser) {
+          return res.status(404).json({ message: "User not found" });
+        }
+
+        if (currentUser.current_balance < amount) {
+          return res.status(400).json({
+            error: "Insufficient balance",
+            message:
+              "Your current balance is insufficient to create this expense",
+            currentBalance: currentUser.current_balance,
+            requiredAmount: amount,
+          });
+        }
+      }
+
       const newExpense = await prisma.expenses.create({
         data: createData,
+      });
+
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          current_balance:
+            categoryData.type === "INCOME"
+              ? { increment: amount }
+              : { decrement: amount },
+        },
       });
 
       logger.info(`Expense created: ${newExpense.id}`);
@@ -183,7 +218,7 @@ const expenseController = {
         categoryId = categoryData.id;
       }
 
-      const updateData: any = {};
+      const updateData: ExpensesUncheckedUpdateInput = {};
       if (title !== undefined) updateData.title = title || null;
       if (note !== undefined) updateData.note = note || null;
       if (amount !== undefined) updateData.amount = amount;

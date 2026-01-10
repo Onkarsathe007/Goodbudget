@@ -1,4 +1,4 @@
-import express, { Router } from "express";
+import express, { type Router } from "express";
 import expenseController from "../controllers/expense.controller.js";
 
 const expenseRouter: Router = express.Router();
