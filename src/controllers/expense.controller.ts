@@ -1,13 +1,10 @@
-import { fromNodeHeaders } from "better-auth/node"; // FromNodeHeaders from Better Auth to convert Express headers
+import { fromNodeHeaders } from "better-auth/node";
 import type { Request, Response } from "express";
 import z from "zod";
 import { auth } from "../config/auth.config.js";
 import prisma from "../config/db.config.js";
 import logger from "../config/logs.config.js";
-import type {
-  ExpensesUncheckedCreateInput,
-  ExpensesUncheckedUpdateInput,
-} from "../generated/prisma/models.js";
+import type { Prisma } from "../generated/prisma/client.js";
 import { expenseSchema } from "../types/expenses.types.js";
 
 const expenseController = {
@@ -81,7 +78,6 @@ const expenseController = {
         });
       }
       const userId = session.user.id;
-      // logger.info(session.user.id);
 
       const categoryData = await prisma.categories.findUnique({
         where: { name: category },
@@ -104,18 +100,15 @@ const expenseController = {
 
       const parsedData = expenseSchema.parse(expenseData);
 
-      const createData: ExpensesUncheckedCreateInput = {
+      const createData: Prisma.ExpensesUncheckedCreateInput = {
         userId: parsedData.userId,
         categoryId: parsedData.categoryId,
         title: parsedData.title,
         note: parsedData.note,
         amount: parsedData.amount,
         type: parsedData.type,
+        ...(accountId && { accountId }),
       };
-
-      if (accountId) {
-        createData.accountId = accountId;
-      }
 
       if (categoryData.type === "EXPENSE") {
         const currentUser = await prisma.user.findUnique({
@@ -175,6 +168,7 @@ const expenseController = {
       });
     }
   },
+
   async updateExpense(req: Request, res: Response) {
     const id = req.params.id as string;
     const { category, title, note, amount, type, accountId } = req.body;
@@ -194,6 +188,7 @@ const expenseController = {
 
       const existingExpense = await prisma.expenses.findUnique({
         where: { id },
+        include: { category: true },
       });
 
       if (!existingExpense) {
@@ -207,24 +202,61 @@ const expenseController = {
         });
       }
 
+      let newCategoryData = existingExpense.category;
       let categoryId = existingExpense.categoryId;
+
       if (category) {
-        const categoryData = await prisma.categories.findUnique({
+        const fetchedCategory = await prisma.categories.findUnique({
           where: { name: category },
         });
-        if (!categoryData) {
+        if (!fetchedCategory) {
           return res.status(404).json({ message: "Category not found" });
         }
-        categoryId = categoryData.id;
+        newCategoryData = fetchedCategory;
+        categoryId = fetchedCategory.id;
       }
 
-      const updateData: ExpensesUncheckedUpdateInput = {};
+      const updateData: Prisma.ExpensesUncheckedUpdateInput = {};
       if (title !== undefined) updateData.title = title || null;
       if (note !== undefined) updateData.note = note || null;
       if (amount !== undefined) updateData.amount = amount;
       if (type !== undefined) updateData.type = type;
       if (category !== undefined) updateData.categoryId = categoryId;
       if (accountId !== undefined) updateData.accountId = accountId || null;
+
+      const oldAmount = existingExpense.amount;
+      const newAmount = amount !== undefined ? amount : oldAmount;
+      const oldType = existingExpense.category.type;
+      const newType = newCategoryData.type;
+
+      let balanceChange = oldType === "INCOME" ? -oldAmount : oldAmount;
+      balanceChange += newType === "INCOME" ? newAmount : -newAmount;
+
+      if (balanceChange !== 0) {
+        const currentUser = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { current_balance: true },
+        });
+
+        if (!currentUser) {
+          return res.status(404).json({ message: "User not found" });
+        }
+
+        const newBalance = currentUser.current_balance + balanceChange;
+        if (newBalance < 0) {
+          return res.status(400).json({
+            error: "Insufficient balance",
+            message: "This update would result in negative balance",
+            currentBalance: currentUser.current_balance,
+            requiredBalance: Math.abs(newBalance),
+          });
+        }
+
+        await prisma.user.update({
+          where: { id: userId },
+          data: { current_balance: { increment: balanceChange } },
+        });
+      }
 
       const updatedExpense = await prisma.expenses.update({
         where: { id },
