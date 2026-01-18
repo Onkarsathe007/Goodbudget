@@ -91,7 +91,7 @@ const expenseController = {
       const expenseData = {
         userId,
         categoryId,
-        accountId: accountId || undefined,
+        accountId: accountId,
         title: title || null,
         note: note || null,
         amount,

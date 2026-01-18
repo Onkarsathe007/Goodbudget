@@ -51,7 +51,9 @@ model BudgetAccount {
   userId         String
   name           String      @default("anonymous")
   initialBalance Int         @default(0)
+  currentBalance Int         @default(0)
   type           AccountType @default(BANK)
+  isDefault      Boolean     @default(false)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   expenses       Expenses[]
@@ -87,19 +89,19 @@ model categories {
 }
 
 model Expenses {
-  id         String         @id @default(uuid())
+  id         String        @id @default(uuid())
   userId     String
-  accountId  String?
+  accountId  String
   categoryId Int
   title      String?
   note       String?
-  createdAt  DateTime       @default(now())
-  updateAt   DateTime       @updatedAt
+  createdAt  DateTime      @default(now())
+  updateAt   DateTime      @updatedAt
   amount     Int
   type       AccountType
-  account    BudgetAccount? @relation(fields: [accountId], references: [id])
-  category   categories     @relation(fields: [categoryId], references: [id])
-  user       User           @relation(fields: [userId], references: [id])
+  account    BudgetAccount @relation(fields: [accountId], references: [id])
+  category   categories    @relation(fields: [categoryId], references: [id])
+  user       User          @relation(fields: [userId], references: [id])
 }
 
 model Verification {
