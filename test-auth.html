@@ -101,7 +101,7 @@
             statusDiv.innerHTML = '<div class="success">Redirecting to Google...</div>';
 
             try {
-                const response = await fetch('http://localhost:3000/api/auth/sign-in/social', {
+                const response = await fetch('http://localhost:3003/api/auth/sign-in/social', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -133,7 +133,7 @@
             result.textContent = 'Loading...';
 
             try {
-                const response = await fetch('http://localhost:3000/api/auth/get-session', {
+                const response = await fetch('http://localhost:3003/api/auth/get-session', {
                     credentials: 'include'
                 });
                 const data = await response.json();
@@ -157,7 +157,7 @@
             result.textContent = 'Signing up...';
 
             try {
-                const response = await fetch('http://localhost:3000/api/auth/sign-up/email', {
+                const response = await fetch('http://localhost:3003/api/auth/sign-up/email', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -193,7 +193,7 @@
             result.textContent = 'Signing in...';
 
             try {
-                const response = await fetch('http://localhost:3000/api/auth/sign-in/email', {
+                const response = await fetch('http://localhost:3003/api/auth/sign-in/email', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -220,7 +220,7 @@
             result.textContent = 'Signing out...';
 
             try {
-                const response = await fetch('http://localhost:3000/api/auth/sign-out', {
+                const response = await fetch('http://localhost:3003/api/auth/sign-out', {
                     method: 'POST',
                     credentials: 'include'
                 });

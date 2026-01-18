@@ -1,5 +1,5 @@
 import winston from "winston";
-
+import LokiTransport from "winston-loki";
 const { combine, timestamp, printf, colorize, errors } = winston.format;
 
 const logFormat = printf(({ level, message, timestamp, stack }) => {
@@ -20,6 +20,14 @@ const logger = winston.createLogger({
       format: combine(colorize(), logFormat),
     }),
 
+    new LokiTransport({
+      host: `${process.env.PROMETHEUS_LOKI}`,
+      labels: {
+        service: "goodbudget-api",
+        env: process.env.NODE_ENV || "dev",
+      },
+      json: true,
+    }),
     // - Write all logs with importance level of `error` or higher to `error.log`
     //   (i.e., error, fatal, but not other levels)
 
