@@ -6,6 +6,7 @@ import express from "express";
 import { auth } from "../config/auth.config.js";
 import categoryRouter from "../routes/category.routes.js";
 import expenseRouter from "../routes/expenses.routes.js";
+import accountRouter from "../routes/account.routes.js";
 
 export default function setUpMiddleware(app: Application) {
   app.use(
@@ -24,4 +25,5 @@ export default function setUpMiddleware(app: Application) {
 
   app.use("/api", categoryRouter);
   app.use("/api", expenseRouter);
+  app.use("/api", accountRouter);
 }
