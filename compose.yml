@@ -1,0 +1,75 @@
+services:
+  db:
+    container_name: "GoodbudgetDB"
+    image: postgres
+    environment:
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_DB=${DB_NAME:-postgres}
+    ports:
+      - ${DB_PORT:-5432}:5432
+    volumes:
+      - ./db-data:/var/lib/postgresql/data
+
+  prometheus:
+    container_name: Goodbudget-Prometheus
+    image: prom/prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - postgres-exporter
+
+  postgres-exporter:
+    container_name: Goodbudget-Postgres-Exporter
+    image: prometheuscommunity/postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: >
+        postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-postgres}?sslmode=disable
+    depends_on:
+      - db
+    ports:
+      - "9187:9187"
+
+  grafana:
+    container_name: "Goodbudget-Grafana"
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - ./grafana-data:/var/lib/grafana
+    depends_on:
+      - db
+
+  redis:
+    container_name: Goodbudget-Redis
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis-data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+
+  redisinsight:
+    container_name: Goodbudget-RedisInsight
+    image: redis/redisinsight:latest
+    ports:
+      - "5540:5540"
+    depends_on:
+      - redis
+
+  redis-exporter:
+    container_name: Goodbudget-Redis-Exporter
+    image: oliver006/redis_exporter
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    ports:
+      - "9121:9121"
+    depends_on:
+      - redis
+
