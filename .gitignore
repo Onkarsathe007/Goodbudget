@@ -6,11 +6,6 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
-# data mount points
-./db-data
-./grafana-data
-./prometheus-data
-
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
@@ -150,3 +145,11 @@ src/generated/prisma
 ./test-auth.html
 ./logs/error.log
 ./logs/combined.log
+
+# Local service data - ignore ephemeral local containers/data directories
+grafana-data/
+prometheus-data/
+prometheus/
+redis-data/
+db-data/
+
