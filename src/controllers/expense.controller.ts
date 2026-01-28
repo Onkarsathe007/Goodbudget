@@ -6,6 +6,7 @@ import prisma from "../config/db.config.js";
 import logger from "../config/logs.config.js";
 import type { Prisma } from "../generated/prisma/client.js";
 import { expenseSchema } from "../types/expenses.types.js";
+import redisClient from "../config/cache.config.js";
 
 const expenseController = {
   async getExpenses(req: Request, res: Response) {
@@ -21,6 +22,15 @@ const expenseController = {
         });
       }
 
+      const cacheKey = `expenses:${session.user.id}`;
+      const cached = await redisClient.get(cacheKey);
+      if (cached) {
+        return res.status(200).json({
+          source: "cache",
+          result: JSON.parse(cached),
+        });
+      }
+
       const expense = await prisma.expenses.findMany({
         where: { userId: session.user.id },
         include: {
@@ -29,12 +39,21 @@ const expenseController = {
         },
       });
 
+      const BASE_TTL = 60 * 60 * 24; // 24h
+      const JITTER = Math.floor(Math.random() * 300); // up to 5 min
+      await redisClient.set(
+        cacheKey,
+        JSON.stringify(expense),
+        "EX",
+        BASE_TTL + JITTER,
+      );
+
       if (!expense) {
         return res.status(404).json({ message: "Expense not found" });
       }
 
       return res.status(200).json({
-        success: true,
+        source: "db",
         data: expense,
       });
     } catch (error) {
@@ -185,6 +204,8 @@ const expenseController = {
         },
       });
 
+      const cacheKey = `expenses:${userId}`;
+      await redisClient.del(cacheKey);
       logger.info(`Expense created: ${newExpense.id}`);
 
       return res.status(201).json({
@@ -304,6 +325,10 @@ const expenseController = {
       });
 
       logger.info(`Expense updated: ${updatedExpense.id}`);
+
+      //deleting cache key
+      const cacheKey = `expenses:${userId}`;
+      await redisClient.del(cacheKey);
 
       return res.status(200).json({
         success: true,
