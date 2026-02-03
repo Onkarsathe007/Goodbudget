@@ -27,7 +27,7 @@ const expenseController = {
       if (cached) {
         return res.status(200).json({
           source: "cache",
-          result: JSON.parse(cached),
+          data: JSON.parse(cached),
         });
       }
 
