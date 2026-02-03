@@ -1,5 +1,5 @@
-import type { Request, Response } from "express";
 import { fromNodeHeaders } from "better-auth/node";
+import type { Request, Response } from "express";
 import { auth } from "../config/auth.config.js";
 import prisma from "../config/db.config.js";
 import logger from "../config/logs.config.js";
@@ -7,12 +7,29 @@ import { accountSchema } from "../types/account.types.js";
 import { syncUserBalance } from "../utils/balance.utils.js";
 
 const accountController = {
-  async getAccounts(_req: Request, res: Response) {
+  async getAccounts(req: Request, res: Response) {
     try {
-      const result = await prisma.budgetAccount.findMany();
-      if (!result) {
+      const session = await auth.api.getSession({
+        headers: fromNodeHeaders(req.headers),
+      });
+
+      if (!session || !session.user) {
+        return res.status(401).json({
+          error: "Unauthorized",
+          message: "You must be logged in",
+        });
+      }
+
+      const userId = session.user.id;
+
+      const result = await prisma.budgetAccount.findMany({
+        where: { userId },
+      });
+
+      if (!result || result.length === 0) {
         return res.status(200).json({ message: "Accounts not Found" });
       }
+
       res.status(200).json({ result });
     } catch (error) {
       logger.error(error);
