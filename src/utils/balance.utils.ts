@@ -19,3 +19,46 @@ export async function syncUserBalance(userId: string): Promise<void> {
     data: { current_balance: totalBalance },
   });
 }
+
+export async function reconcileUserBalance(
+  userId: string,
+): Promise<{
+  needsReconciliation: boolean;
+  difference: number;
+  fixed: boolean;
+}> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { current_balance: true },
+  });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  const calculatedBalance = await calculateUserTotalBalance(userId);
+  const difference = calculatedBalance - user.current_balance;
+
+  if (difference !== 0) {
+    await syncUserBalance(userId);
+    return { needsReconciliation: true, difference, fixed: true };
+  }
+
+  return { needsReconciliation: false, difference: 0, fixed: false };
+}
+
+export async function validateBalanceConsistency(
+  userId: string,
+): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { current_balance: true },
+  });
+
+  if (!user) {
+    return false;
+  }
+
+  const calculatedBalance = await calculateUserTotalBalance(userId);
+  return user.current_balance === calculatedBalance;
+}
