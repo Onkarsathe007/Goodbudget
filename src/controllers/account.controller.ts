@@ -1,6 +1,7 @@
 import { fromNodeHeaders } from "better-auth/node";
 import type { Request, Response } from "express";
 import { auth } from "../config/auth.config.js";
+import redisClient from "../config/cache.config.js";
 import prisma from "../config/db.config.js";
 import logger from "../config/logs.config.js";
 import { accountSchema } from "../types/account.types.js";
@@ -129,6 +130,12 @@ const accountController = {
         return account;
       });
 
+      await Promise.all([
+        redisClient.del(`user:balance:${userId}`),
+        redisClient.del(`user:stats:${userId}`),
+        redisClient.del(`user:profile:${userId}`),
+      ]);
+
       return res.status(201).json({
         success: true,
         message: "Account created successfully",
@@ -224,6 +231,12 @@ const accountController = {
         return account;
       });
 
+      await Promise.all([
+        redisClient.del(`user:balance:${userId}`),
+        redisClient.del(`user:stats:${userId}`),
+        redisClient.del(`user:profile:${userId}`),
+      ]);
+
       return res.status(200).json({
         success: true,
         message: "Account updated successfully",
@@ -287,6 +300,12 @@ const accountController = {
           },
         });
       });
+
+      await Promise.all([
+        redisClient.del(`user:balance:${userId}`),
+        redisClient.del(`user:stats:${userId}`),
+        redisClient.del(`user:profile:${userId}`),
+      ]);
 
       return res.status(200).json({
         success: true,

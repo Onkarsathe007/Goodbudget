@@ -2,11 +2,11 @@ import { fromNodeHeaders } from "better-auth/node";
 import type { Request, Response } from "express";
 import z from "zod";
 import { auth } from "../config/auth.config.js";
+import redisClient from "../config/cache.config.js";
 import prisma from "../config/db.config.js";
 import logger from "../config/logs.config.js";
 import type { Prisma } from "../generated/prisma/client.js";
 import { expenseSchema } from "../types/expenses.types.js";
-import redisClient from "../config/cache.config.js";
 
 const expenseController = {
   async getExpenses(req: Request, res: Response) {
@@ -169,50 +169,79 @@ const expenseController = {
         accountId: parsedData.accountId,
       };
 
-      if (categoryData.type === "EXPENSE") {
-        const currentUser = await prisma.user.findUnique({
-          where: { id: userId },
-          select: { current_balance: true },
+      try {
+        const newExpense = await prisma.$transaction(async (tx) => {
+          if (categoryData.type === "EXPENSE") {
+            const currentUser = await tx.user.findUnique({
+              where: { id: userId },
+              select: { current_balance: true },
+            });
+
+            if (!currentUser) {
+              throw new Error("User not found");
+            }
+
+            if (currentUser.current_balance < amount) {
+              throw new Error(
+                JSON.stringify({
+                  error: "Insufficient balance",
+                  message:
+                    "Your current balance is insufficient to create this expense",
+                  currentBalance: currentUser.current_balance,
+                  requiredAmount: amount,
+                }),
+              );
+            }
+          }
+
+          const expense = await tx.expenses.create({
+            data: createData,
+          });
+
+          await tx.user.update({
+            where: { id: userId },
+            data: {
+              current_balance:
+                categoryData.type === "INCOME"
+                  ? { increment: amount }
+                  : { decrement: amount },
+            },
+          });
+
+          await tx.budgetAccount.update({
+            where: { id: accountData.id },
+            data: {
+              currentBalance:
+                categoryData.type === "INCOME"
+                  ? { increment: amount }
+                  : { decrement: amount },
+            },
+          });
+
+          return expense;
         });
 
-        if (!currentUser) {
-          return res.status(404).json({ message: "User not found" });
-        }
+        await Promise.all([
+          redisClient.del(`expenses:${userId}`),
+          redisClient.del(`user:balance:${userId}`),
+          redisClient.del(`user:stats:${userId}`),
+          redisClient.del(`user:profile:${userId}`),
+        ]);
 
-        if (currentUser.current_balance < amount) {
-          return res.status(400).json({
-            error: "Insufficient balance",
-            message:
-              "Your current balance is insufficient to create this expense",
-            currentBalance: currentUser.current_balance,
-            requiredAmount: amount,
-          });
+        logger.info(`Expense created: ${newExpense.id}`);
+
+        return res.status(201).json({
+          success: true,
+          message: "Expense created successfully",
+          data: newExpense,
+        });
+      } catch (txError) {
+        if (txError instanceof Error && txError.message.startsWith("{")) {
+          const errorData = JSON.parse(txError.message);
+          return res.status(400).json(errorData);
         }
+        throw txError;
       }
-
-      const newExpense = await prisma.expenses.create({
-        data: createData,
-      });
-
-      await prisma.user.update({
-        where: { id: userId },
-        data: {
-          current_balance:
-            categoryData.type === "INCOME"
-              ? { increment: amount }
-              : { decrement: amount },
-        },
-      });
-
-      const cacheKey = `expenses:${userId}`;
-      await redisClient.del(cacheKey);
-      logger.info(`Expense created: ${newExpense.id}`);
-
-      return res.status(201).json({
-        success: true,
-        message: "Expense created successfully",
-        data: newExpense,
-      });
     } catch (error) {
       logger.error(error);
 
@@ -293,48 +322,70 @@ const expenseController = {
       let balanceChange = oldType === "INCOME" ? -oldAmount : oldAmount;
       balanceChange += newType === "INCOME" ? newAmount : -newAmount;
 
-      if (balanceChange !== 0) {
-        const currentUser = await prisma.user.findUnique({
-          where: { id: userId },
-          select: { current_balance: true },
-        });
+      try {
+        const updatedExpense = await prisma.$transaction(async (tx) => {
+          if (balanceChange !== 0) {
+            const currentUser = await tx.user.findUnique({
+              where: { id: userId },
+              select: { current_balance: true },
+            });
 
-        if (!currentUser) {
-          return res.status(404).json({ message: "User not found" });
-        }
+            if (!currentUser) {
+              throw new Error("User not found");
+            }
 
-        const newBalance = currentUser.current_balance + balanceChange;
-        if (newBalance < 0) {
-          return res.status(400).json({
-            error: "Insufficient balance",
-            message: "This update would result in negative balance",
-            currentBalance: currentUser.current_balance,
-            requiredBalance: Math.abs(newBalance),
+            const newBalance = currentUser.current_balance + balanceChange;
+            if (newBalance < 0) {
+              throw new Error(
+                JSON.stringify({
+                  error: "Insufficient balance",
+                  message: "This update would result in negative balance",
+                  currentBalance: currentUser.current_balance,
+                  requiredBalance: Math.abs(newBalance),
+                }),
+              );
+            }
+
+            await tx.user.update({
+              where: { id: userId },
+              data: { current_balance: { increment: balanceChange } },
+            });
+
+            await tx.budgetAccount.update({
+              where: { id: existingExpense.accountId },
+              data: { currentBalance: { increment: balanceChange } },
+            });
+          }
+
+          const expense = await tx.expenses.update({
+            where: { id },
+            data: updateData,
           });
-        }
 
-        await prisma.user.update({
-          where: { id: userId },
-          data: { current_balance: { increment: balanceChange } },
+          return expense;
         });
+
+        logger.info(`Expense updated: ${updatedExpense.id}`);
+
+        await Promise.all([
+          redisClient.del(`expenses:${userId}`),
+          redisClient.del(`user:balance:${userId}`),
+          redisClient.del(`user:stats:${userId}`),
+          redisClient.del(`user:profile:${userId}`),
+        ]);
+
+        return res.status(200).json({
+          success: true,
+          message: "Expense updated successfully",
+          data: updatedExpense,
+        });
+      } catch (txError) {
+        if (txError instanceof Error && txError.message.startsWith("{")) {
+          const errorData = JSON.parse(txError.message);
+          return res.status(400).json(errorData);
+        }
+        throw txError;
       }
-
-      const updatedExpense = await prisma.expenses.update({
-        where: { id },
-        data: updateData,
-      });
-
-      logger.info(`Expense updated: ${updatedExpense.id}`);
-
-      //deleting cache key
-      const cacheKey = `expenses:${userId}`;
-      await redisClient.del(cacheKey);
-
-      return res.status(200).json({
-        success: true,
-        message: "Expense updated successfully",
-        data: updatedExpense,
-      });
     } catch (error) {
       logger.error(error);
 
@@ -377,19 +428,38 @@ const expenseController = {
         });
       }
 
-      await prisma.expenses.delete({
-        where: { id },
+      await prisma.$transaction(async (tx) => {
+        await tx.expenses.delete({
+          where: { id },
+        });
+
+        await tx.user.update({
+          where: { id: userId },
+          data: {
+            current_balance:
+              existingExpense.category.type === "INCOME"
+                ? { decrement: existingExpense.amount }
+                : { increment: existingExpense.amount },
+          },
+        });
+
+        await tx.budgetAccount.update({
+          where: { id: existingExpense.accountId },
+          data: {
+            currentBalance:
+              existingExpense.category.type === "INCOME"
+                ? { decrement: existingExpense.amount }
+                : { increment: existingExpense.amount },
+          },
+        });
       });
 
-      await prisma.user.update({
-        where: { id: userId },
-        data: {
-          current_balance:
-            existingExpense.category.type === "INCOME"
-              ? { decrement: existingExpense.amount }
-              : { increment: existingExpense.amount },
-        },
-      });
+      await Promise.all([
+        redisClient.del(`expenses:${userId}`),
+        redisClient.del(`user:balance:${userId}`),
+        redisClient.del(`user:stats:${userId}`),
+        redisClient.del(`user:profile:${userId}`),
+      ]);
 
       logger.info(`Expense deleted: ${id}`);
 
