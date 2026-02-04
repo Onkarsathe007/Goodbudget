@@ -4,9 +4,9 @@
 
 [functions]
   directory = "netlify/functions"
-  external_node_modules = ["express", "@prisma/client", "pg"]
+  external_node_modules = ["express", "@prisma/client", "pg", "better-auth"]
   node_bundler = "esbuild"
-  included_files = ["prisma/schema.prisma", ".env"]
+  included_files = ["prisma/schema.prisma", "src/generated/prisma/**", "dist/**"]
 
 [[redirects]]
   force = true

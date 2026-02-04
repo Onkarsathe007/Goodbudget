@@ -4,6 +4,7 @@ import { auth } from "../config/auth.config.js";
 import redisClient from "../config/cache.config.js";
 import prisma from "../config/db.config.js";
 import logger from "../config/logs.config.js";
+import type { Prisma } from "../generated/prisma/client.js";
 import { accountSchema } from "../types/account.types.js";
 import { syncUserBalance } from "../utils/balance.utils.js";
 
@@ -101,34 +102,36 @@ const accountController = {
         });
       }
 
-      const result = await prisma.$transaction(async (tx) => {
-        if (parsedData.isDefault) {
-          await tx.budgetAccount.updateMany({
-            where: { userId, isDefault: true },
-            data: { isDefault: false },
+      const result = await prisma.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          if (parsedData.isDefault) {
+            await tx.budgetAccount.updateMany({
+              where: { userId, isDefault: true },
+              data: { isDefault: false },
+            });
+          }
+
+          const account = await tx.budgetAccount.create({
+            data: {
+              userId: parsedData.userId,
+              name: parsedData.name,
+              initialBalance: parsedData.initialBalance,
+              currentBalance: parsedData.currentBalance,
+              type: parsedData.type,
+              isDefault: parsedData.isDefault,
+            },
           });
-        }
 
-        const account = await tx.budgetAccount.create({
-          data: {
-            userId: parsedData.userId,
-            name: parsedData.name,
-            initialBalance: parsedData.initialBalance,
-            currentBalance: parsedData.currentBalance,
-            type: parsedData.type,
-            isDefault: parsedData.isDefault,
-          },
-        });
+          await tx.user.update({
+            where: { id: userId },
+            data: {
+              current_balance: { increment: parsedData.initialBalance },
+            },
+          });
 
-        await tx.user.update({
-          where: { id: userId },
-          data: {
-            current_balance: { increment: parsedData.initialBalance },
-          },
-        });
-
-        return account;
-      });
+          return account;
+        },
+      );
 
       await Promise.all([
         redisClient.del(`user:balance:${userId}`),
@@ -197,39 +200,41 @@ const accountController = {
         }
       }
 
-      const result = await prisma.$transaction(async (tx) => {
-        if (isDefault && !existingAccount.isDefault) {
-          await tx.budgetAccount.updateMany({
-            where: { userId, isDefault: true },
-            data: { isDefault: false },
+      const result = await prisma.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          if (isDefault && !existingAccount.isDefault) {
+            await tx.budgetAccount.updateMany({
+              where: { userId, isDefault: true },
+              data: { isDefault: false },
+            });
+          }
+
+          const updateData: any = {};
+          if (name !== undefined) updateData.name = name;
+          if (type !== undefined) updateData.type = type;
+          if (isDefault !== undefined) updateData.isDefault = isDefault;
+
+          if (currentBalance !== undefined) {
+            const balanceDifference =
+              currentBalance - existingAccount.currentBalance;
+            updateData.currentBalance = currentBalance;
+
+            await tx.user.update({
+              where: { id: userId },
+              data: {
+                current_balance: { increment: balanceDifference },
+              },
+            });
+          }
+
+          const account = await tx.budgetAccount.update({
+            where: { id },
+            data: updateData,
           });
-        }
 
-        const updateData: any = {};
-        if (name !== undefined) updateData.name = name;
-        if (type !== undefined) updateData.type = type;
-        if (isDefault !== undefined) updateData.isDefault = isDefault;
-
-        if (currentBalance !== undefined) {
-          const balanceDifference =
-            currentBalance - existingAccount.currentBalance;
-          updateData.currentBalance = currentBalance;
-
-          await tx.user.update({
-            where: { id: userId },
-            data: {
-              current_balance: { increment: balanceDifference },
-            },
-          });
-        }
-
-        const account = await tx.budgetAccount.update({
-          where: { id },
-          data: updateData,
-        });
-
-        return account;
-      });
+          return account;
+        },
+      );
 
       await Promise.all([
         redisClient.del(`user:balance:${userId}`),
@@ -288,7 +293,7 @@ const accountController = {
         });
       }
 
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         await tx.budgetAccount.delete({
           where: { id },
         });

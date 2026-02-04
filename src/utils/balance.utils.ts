@@ -8,7 +8,10 @@ export async function calculateUserTotalBalance(
     select: { currentBalance: true },
   });
 
-  return accounts.reduce((total, account) => total + account.currentBalance, 0);
+  return accounts.reduce(
+    (total: number, account) => total + account.currentBalance,
+    0,
+  );
 }
 
 export async function syncUserBalance(userId: string): Promise<void> {
@@ -20,9 +23,7 @@ export async function syncUserBalance(userId: string): Promise<void> {
   });
 }
 
-export async function reconcileUserBalance(
-  userId: string,
-): Promise<{
+export async function reconcileUserBalance(userId: string): Promise<{
   needsReconciliation: boolean;
   difference: number;
   fixed: boolean;

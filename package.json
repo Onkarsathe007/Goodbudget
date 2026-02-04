@@ -6,7 +6,7 @@
 	"main": "index.js",
 	"scripts": {
 		"dev": "doppler run -- sh -c 'tsc && node dist/index.js'",
-		"build": "tsc && prisma generate",
+		"build": "prisma generate && tsc",
 		"check": "biome check .",
 		"check:fix": "biome check . --fix",
 		"check:migrate": "biome migrate --write"
