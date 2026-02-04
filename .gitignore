@@ -153,3 +153,6 @@ prometheus/
 redis-data/
 db-data/
 
+# Netlify
+.netlify/
+

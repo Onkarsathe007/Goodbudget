@@ -1,0 +1,21 @@
+[build]
+  command = "pnpm run build"
+  publish = "dist"
+
+[functions]
+  directory = "netlify/functions"
+  external_node_modules = ["express", "@prisma/client", "pg"]
+  node_bundler = "esbuild"
+  included_files = ["prisma/schema.prisma", ".env"]
+
+[[redirects]]
+  force = true
+  from = "/api/*"
+  status = 200
+  to = "/.netlify/functions/api/:splat"
+
+[[redirects]]
+  force = true
+  from = "/*"
+  status = 200
+  to = "/.netlify/functions/api/:splat"

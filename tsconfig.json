@@ -1,6 +1,6 @@
 {
 	// Visit https://aka.ms/tsconfig to read more about this file
-	"exclude": ["node_modules", "dist", "*.config.ts", "generated", "src/generated"],
+	"exclude": ["node_modules", "dist", "*.config.ts", "generated", "src/generated", "netlify"],
 	"compilerOptions": {
 		// File Layout
 		"rootDir": "./src",
