@@ -6,7 +6,11 @@ import redisClient from "../config/cache.config.js";
 import prisma from "../config/db.config.js";
 import logger from "../config/logs.config.js";
 import { updateProfileSchema } from "../types/user.types.js";
-import { calculateUserTotalBalance } from "../utils/balance.utils.js";
+import {
+  calculateUserTotalBalance,
+  reconcileUserBalance,
+  validateBalanceConsistency,
+} from "../utils/balance.utils.js";
 
 const userController = {
   async getProfile(req: Request, res: Response) {
@@ -119,8 +123,10 @@ const userController = {
         },
       });
 
-      const cacheKey = `user:profile:${session.user.id}`;
-      await redisClient.del(cacheKey);
+      await Promise.all([
+        redisClient.del(`user:profile:${session.user.id}`),
+        redisClient.del(`user:stats:${session.user.id}`),
+      ]);
 
       logger.info(`Profile updated for user: ${session.user.id}`);
 
@@ -270,6 +276,89 @@ const userController = {
       logger.error(error);
       return res.status(500).json({
         error: "Failed to fetch statistics",
+        message: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
+  async reconcileBalance(req: Request, res: Response) {
+    try {
+      const session = await auth.api.getSession({
+        headers: fromNodeHeaders(req.headers),
+      });
+
+      if (!session || !session.user) {
+        return res.status(401).json({
+          error: "Unauthorized",
+          message: "You must be logged in",
+        });
+      }
+
+      const result = await reconcileUserBalance(session.user.id);
+
+      if (result.needsReconciliation) {
+        await Promise.all([
+          redisClient.del(`user:balance:${session.user.id}`),
+          redisClient.del(`user:stats:${session.user.id}`),
+          redisClient.del(`user:profile:${session.user.id}`),
+        ]);
+
+        logger.warn(
+          `Balance reconciliation performed for user ${session.user.id}, difference: ${result.difference}`,
+        );
+
+        return res.status(200).json({
+          success: true,
+          message: "Balance reconciled successfully",
+          data: {
+            wasInconsistent: true,
+            difference: result.difference,
+            fixed: result.fixed,
+          },
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Balance is already consistent",
+        data: {
+          wasInconsistent: false,
+          difference: 0,
+          fixed: false,
+        },
+      });
+    } catch (error) {
+      logger.error(error);
+      return res.status(500).json({
+        error: "Failed to reconcile balance",
+        message: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
+  async validateBalance(req: Request, res: Response) {
+    try {
+      const session = await auth.api.getSession({
+        headers: fromNodeHeaders(req.headers),
+      });
+
+      if (!session || !session.user) {
+        return res.status(401).json({
+          error: "Unauthorized",
+          message: "You must be logged in",
+        });
+      }
+
+      const isConsistent = await validateBalanceConsistency(session.user.id);
+
+      return res.status(200).json({
+        success: true,
+        data: { isConsistent },
+      });
+    } catch (error) {
+      logger.error(error);
+      return res.status(500).json({
+        error: "Failed to validate balance",
         message: error instanceof Error ? error.message : "Unknown error",
       });
     }
