@@ -1,0 +1,135 @@
+name: Test Suite
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    name: Run Complete Test Suite
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: goodbudget_test
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: goodbudget_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "25"
+          cache: "pnpm"
+
+      - name: Install Doppler CLI
+        uses: dopplerhq/cli-action@v3
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup environment variables
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+        run: |
+          if [ -z "$DOPPLER_TOKEN" ]; then
+            echo "⚠️  DOPPLER_TOKEN not set, using fallback .env"
+            cat > .env << EOF
+          PORT=3000
+          DATABASE_URL=postgresql://goodbudget_test:test_password@localhost:5432/goodbudget_test
+          REDIS_URL=redis://localhost:6379
+          BETTER_AUTH_SECRET=test-secret-key-for-ci-cd-minimum-32-characters
+          BETTER_AUTH_URL=http://localhost:3000
+          NODE_ENV=test
+          EOF
+          else
+            echo "✅ Using Doppler secrets"
+          fi
+
+      - name: Run database migrations
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+        run: |
+          if [ -z "$DOPPLER_TOKEN" ]; then
+            export $(cat .env | xargs)
+            pnpm prisma migrate deploy
+            pnpm prisma generate
+          else
+            doppler run --config ci --project goodbudget -- pnpm prisma migrate deploy
+            doppler run --config ci --project goodbudget -- pnpm prisma generate
+          fi
+
+      - name: TypeScript compilation check
+        run: pnpm exec tsc --noEmit
+
+      - name: Biome lint and format check
+        run: pnpm check
+
+      - name: Run tests (if available)
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+        run: |
+          if [ -z "$DOPPLER_TOKEN" ]; then
+            export $(cat .env | xargs)
+            if grep -q '"test"' package.json; then
+              pnpm test
+            else
+              echo "No test script found in package.json"
+            fi
+          else
+            if grep -q '"test"' package.json; then
+              doppler run --config ci --project goodbudget -- pnpm test
+            else
+              echo "No test script found in package.json"
+            fi
+          fi
+
+      - name: Build application
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+        run: |
+          if [ -z "$DOPPLER_TOKEN" ]; then
+            export $(cat .env | xargs)
+            pnpm exec tsc
+          else
+            doppler run --config ci --project goodbudget -- pnpm exec tsc
+          fi
+
+      - name: Test server startup
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+        run: |
+          if [ -z "$DOPPLER_TOKEN" ]; then
+            export $(cat .env | xargs)
+            timeout 10s node dist/index.js || [ $? -eq 124 ] && echo "Server starts successfully"
+          else
+            timeout 10s doppler run --config ci --project goodbudget -- node dist/index.js || [ $? -eq 124 ] && echo "Server starts successfully"
+          fi
