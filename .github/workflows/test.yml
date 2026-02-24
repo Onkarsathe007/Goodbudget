@@ -69,6 +69,7 @@ jobs:
           BETTER_AUTH_SECRET=test-secret-key-for-ci-cd-minimum-32-characters
           BETTER_AUTH_URL=http://localhost:3000
           NODE_ENV=test
+          SKIP_LOKI=true
           EOF
           else
             echo "✅ Using Doppler secrets"
