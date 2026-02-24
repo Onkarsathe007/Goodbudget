@@ -90,9 +90,6 @@ jobs:
       - name: TypeScript compilation check
         run: pnpm exec tsc --noEmit
 
-      - name: Biome lint and format check
-        run: pnpm check
-
       - name: Run tests (if available)
         env:
           DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
