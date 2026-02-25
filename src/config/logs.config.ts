@@ -20,10 +20,10 @@ const logger = winston.createLogger({
       format: combine(colorize(), logFormat),
     }),
 
-    ...(process.env.SKIP_LOKI !== "true"
+    ...(process.env.SKIP_LOKI !== "true" && process.env.PROMETHEUS_LOKI
       ? [
           new LokiTransport({
-            host: `${process.env.PROMETHEUS_LOKI}`,
+            host: process.env.PROMETHEUS_LOKI,
             labels: {
               service: "goodbudget-api",
               env: process.env.NODE_ENV || "dev",
