@@ -95,10 +95,6 @@ RUN mkdir -p logs && chown -R appuser:nodejs logs
 # Switch to non-root user
 USER appuser
 
-# Set default environment variables
-ENV SKIP_LOKI=true \
-    NODE_ENV=production
-
 # Expose application port
 EXPOSE 3000
 

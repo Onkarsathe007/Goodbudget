@@ -11,11 +11,6 @@ const __dirname = path.dirname(__filename);
 
 const app: Application = express();
 
-// Health check endpoint (before middleware)
-app.get("/health", (_req, res) => {
-  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
-});
-
 setUpMiddleware(app);
 
 // Test route
@@ -29,7 +24,6 @@ app.get("/", (_req, res) => {
     message: "Goodbudget API is running.",
   });
 });
-
 
 app.listen(process.env.PORT, () => {
   logger.info(`Server listening on port ${process.env.PORT}`);
