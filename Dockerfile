@@ -5,7 +5,6 @@
 # ================================
 FROM node:20-alpine AS deps
 
-# Install build dependencies for native modules (bcrypt)
 RUN apk add --no-cache python3 make g++
 
 # Enable pnpm
