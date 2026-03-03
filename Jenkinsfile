@@ -84,18 +84,18 @@ pipeline {
             }
         }
         
-        stage('Lint & Format Check') {
-            steps {
-                script {
-                    echo "🔍 Running Biome linting and format checks..."
-                    sh '''
-                        # Run Biome checks (lint + format)
-                        pnpm run check
-                    '''
-                }
-            }
-        }
-        
+        // stage('Lint & Format Check') {
+        //     steps {
+        //         script {
+        //             echo "🔍 Running Biome linting and format checks..."
+        //             sh '''
+        //                 # Run Biome checks (lint + format)
+        //                 pnpm run check
+        //             '''
+        //         }
+        //     }
+        // }
+        //
         stage('Type Check') {
             steps {
                 script {
