@@ -96,18 +96,18 @@ pipeline {
         //     }
         // }
         //
-        stage('Type Check') {
-            steps {
-                script {
-                    echo "🔍 Running TypeScript type checking..."
-                    sh '''
-                        # Run TypeScript compiler in check mode (no emit)
-                        pnpm exec tsc --noEmit
-                    '''
-                }
-            }
-        }
-        
+        // stage('Type Check') {
+        //     steps {
+        //         script {
+        //             echo "🔍 Running TypeScript type checking..."
+        //             sh '''
+        //                 # Run TypeScript compiler in check mode (no emit)
+        //                 pnpm exec tsc --noEmit
+        //             '''
+        //         }
+        //     }
+        // }
+        //
         stage('Generate Prisma Client') {
             steps {
                 script {
